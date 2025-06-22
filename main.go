@@ -1,13 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/trolioSFG/blogconfig"
 	"os"
+	"log"
+
+	"github.com/trolioSFG/blogconfig"
+	"github.com/trolioSFG/database"
+	_ "github.com/lib/pq"
 )
 
 type state struct {
 	cfg *blogconfig.Config
+	db *database.Queries
 }
 
 
@@ -21,23 +27,16 @@ func main() {
 	c := blogconfig.Read()
 	s := state{}
 	s.cfg = &c
-/**
-	c.SetUser("sergio")
 
-	c = blogconfig.Read()
-	fmt.Printf("%+v\n", c)
-
-	cmd := command{name: "login", args: []string{"sergio"}}
-	// c.name = "login"
-	// c.args := []string{ "sergio" }
-	err := handlerLogin(&s, cmd)
+	db, err := sql.Open("postgres", c.DbURL)
 	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("%+v\n", s.cfg)
+		log.Fatalf("Could not connect to postgresql: %v", err)
 	}
+	defer db.Close()
 
-*/
+	dbQueries := database.New(db)
+	s.db = dbQueries
+
 
 	cmd := command {
 		name: os.Args[1],
@@ -48,7 +47,10 @@ func main() {
 	cmds.cmds = make(map[string]func(*state, command) error, 0)
 
 	cmds.register("login", handlerLogin)
-	err := cmds.run(&s, cmd)
+	cmds.register("register", handlerRegister)
+
+
+	err = cmds.run(&s, cmd)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
