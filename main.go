@@ -68,6 +68,10 @@ func main() {
 	cmds.register("feeds", handlerFeeds)
 	cmds.register("follow", middlewareLoggedIn(handlerAddFeedFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
+	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+
+	// TEST
+	cmds.register("scrape", scrapeFeeds)
 
 	err = cmds.run(&s, cmd)
 	if err != nil {

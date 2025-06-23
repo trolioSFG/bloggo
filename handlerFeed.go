@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-//	"database/sql"
+	"database/sql"
 	"github.com/trolioSFG/database"
 	"time"
 )
@@ -106,5 +106,58 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	}
 
 	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("Usage: unfollow <feed_url>")
+	}
+
+
+	feed, err := s.db.GetFeedByURL(context.Background(), cmd.args[0])
+	if err != nil {
+		return err
+	}
+
+	err = s.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{UserID: user.ID, FeedID: feed.ID})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Feed follow deleted!")
+	return nil
+}
+
+func scrapeFeeds(s *state, cmd command) error {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+	fmt.Println("Feed ID to mark:", feed.ID)
+	err = s.db.MarkFeedFetched(context.Background(),
+		database.MarkFeedFetchedParams {
+			LastFetchedAt: sql.NullTime{ Time: time.Now(), Valid: true },
+			UpdatedAt: time.Now(),
+			ID: feed.ID,
+		})
+	
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Marked")
+	fmt.Println("Fetching feed...")
+
+	rss, err := fetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range rss.Channel.Item {
+		fmt.Println(item.Title)
+	}
+
+	return nil
+
 }
 
