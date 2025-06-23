@@ -31,10 +31,6 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: bloggo <command> [<cmd_args>...]")
-		os.Exit(1)
-	}
 
 	fmt.Println("Blog aggregator")
 	c := blogconfig.Read()
@@ -51,11 +47,6 @@ func main() {
 	s.db = dbQueries
 
 
-	cmd := command {
-		name: os.Args[1],
-		args: os.Args[2:],
-	}
-
 	cmds := commands{}
 	cmds.cmds = make(map[string]func(*state, command) error, 0)
 
@@ -69,9 +60,24 @@ func main() {
 	cmds.register("follow", middlewareLoggedIn(handlerAddFeedFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
 
 	// TEST
-	cmds.register("scrape", scrapeFeeds)
+	// cmds.register("scrape", scrapeFeeds)
+
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: bloggo <command> [<cmd_args>...]")
+		fmt.Println("Available commands:")
+		for name, _ := range cmds.cmds {
+			fmt.Println(name)
+		}
+		os.Exit(1)
+	}
+
+	cmd := command {
+		name: os.Args[1],
+		args: os.Args[2:],
+	}
 
 	err = cmds.run(&s, cmd)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"html"
 	"fmt"
+	"time"
 )
 
 type RSSFeed struct {
@@ -66,27 +67,22 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	/**
 	if len(cmd.args) != 1 {
-		return fmt.Errorf("Usage: agg <feedURL>")
+		return fmt.Errorf("Usage: agg <duration>")
 	}
-	***/
 
-	feedURL := "https://www.wagslane.dev/index.xml"
-	feed, err := fetchFeed(context.Background(), feedURL)
+	duration, err := time.ParseDuration(cmd.args[0])
 	if err != nil {
-		return fmt.Errorf("Error fetching RSS feed at: %s err: %w", feedURL, err)
+		return fmt.Errorf("Error parsing duration: %s err: %w", cmd.args[0], err)
+	}
+	fmt.Printf("Collecting feeds every %s\n", duration)
+	fmt.Printf("Now: %v\n", time.Now())
+
+	ticker := time.NewTicker(duration)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
 	}
 
-	fmt.Println("%v", feed)
-	/**
-	fmt.Println(feed.Channel.Title)
-	fmt.Println(feed.Channel.Description)
-	for _, item := range feed.Channel.Item {
-		fmt.Println("Title:", item.Title)
-		fmt.Println("Description:", item.Description)
-	}
-	**/
 
 	return nil
 }

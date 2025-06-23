@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"github.com/trolioSFG/database"
 	"time"
+	"strconv"
+	"strings"
 )
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -128,7 +130,7 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func scrapeFeeds(s *state, cmd command) error {
+func scrapeFeeds(s *state) error {
 	feed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
 		return err
@@ -154,10 +156,62 @@ func scrapeFeeds(s *state, cmd command) error {
 	}
 
 	for _, item := range rss.Channel.Item {
-		fmt.Println(item.Title)
+		fmt.Println("Saving:", item.Title)
+
+		// OJO a esto...
+		pubDate, _ := time.Parse(time.ANSIC, item.PubDate)
+
+		err := s.db.AddPost(context.Background(), database.AddPostParams{ ID: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Title: item.Title,
+			Url: item.Link, 
+			Description: sql.NullString{ String: item.Description, Valid: true },
+			PublishedAt: pubDate, 
+			FeedID: feed.ID,
+		})
+
+		if err != nil {
+			// No hay mejor forma ??
+			if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				continue
+			}			
+			return fmt.Errorf("INSERT POST ERROR: %w %v\n", err, err)
+		}
+
 	}
 
+	fmt.Println("======================================================")
 	return nil
 
 }
 
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	if len(cmd.args) == 0 {
+		cmd.args = append(cmd.args, "2")
+	}
+
+	numposts, err := strconv.Atoi(cmd.args[0])
+	if err != nil {
+		return fmt.Errorf("Error parsing int limit: %w", err)
+	}
+
+
+	posts, err := s.db.GetPostsForUser(context.Background(),
+		database.GetPostsForUserParams { ID: user.ID, Limit: int32(numposts), })
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		// Layouts must use the reference time Mon Jan 2 15:04:05 MST 2006
+		// ... .Format("Mon Jan 2") !!!
+
+		fmt.Println("Published at:", post.PublishedAt.Format(time.ANSIC))
+		fmt.Println(post.Title)
+		// Se guarda la struct entera al ser sql.NullString !!!
+		fmt.Println(post.Description.String)
+	}
+
+	return nil
+}
